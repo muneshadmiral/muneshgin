@@ -1,0 +1,31 @@
+FROM golang:latest as builder
+
+WORKDIR /go/src/github.com/muneshadmiral/muneshgin
+ADD . /go/src/github.com/muneshadmiral/muneshgin/
+
+ENV GO111MODULE=on
+RUN uname -a; go version; go env ; go build -mod=vendor -o muneshgin .
+
+FROM alpine:latest
+
+RUN apk update && \
+    apk upgrade && \
+    apk add ca-certificates && update-ca-certificates && \
+    apk add --update tzdata && \
+    cp /usr/share/zoneinfo/US/Eastern /etc/localtime && \
+    echo "US/Eastern" >  /etc/timezone && \
+    apk del tzdata && \
+    apk add bash && \
+    apk add libc6-compat
+
+ENV LD_LIBRARY_PATH /opt/appdynamics/src/appdynamics/lib
+
+WORKDIR /root/
+COPY --from=builder /go/src/github.com/muneshadmiral/muneshgin/muneshgin .
+COPY machineagent-bundle-64bit-linux-20.7.0.2694 /opt/muneshgin/machineagent
+
+CMD chmod +rwx /opt/muneshgin
+CMD /opt/muneshgin/machineagent/jre/bin/java -jar /opt/muneshgin/machineagent/machineagent.jar
+CMD /root/muneshgin
+
+EXPOSE 4000
